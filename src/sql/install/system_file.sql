@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS `system_file_data` (
   `data` longtext, -- stores the file content in base64 format
   constraint `fk_system_file_data_filename`
   foreign key (`filename`)
-  references (`system_file`)
+  references `system_file`(`filename`)
   on delete cascade
-  on update cascade
+  on update cascade,
   PRIMARY KEY (`filename`)
 ) ;

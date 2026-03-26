@@ -1,6 +1,6 @@
 <?php
 
-namespace Tualo\Office\Sass\Checks;
+namespace Tualo\Office\SystemFiles\Checks;
 
 use Tualo\Office\Basic\Middleware\Session;
 use Tualo\Office\Basic\PostCheck;
