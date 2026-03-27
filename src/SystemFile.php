@@ -54,12 +54,12 @@ class SystemFile
         $db = App::get('session')->getDB();
         $etag = md5($fileContent);
         $mimetype = $callbackResult->getMimetype();
-        $db->query('insert into system_file (filename, mimetype, etag) values ({filename}, {mimetype}, {etag}) on duplicate key update updated_at=CURRENT_TIMESTAMP, mimetype={mimetype}, etag={etag}', [
+        $db->direct('insert into system_file (filename, mimetype, etag) values ({filename}, {mimetype}, {etag}) on duplicate key update updated_at=CURRENT_TIMESTAMP, mimetype={mimetype}, etag={etag}', [
             'filename' => $filename,
             'mimetype' => $mimetype,
             'etag' => $etag
         ]);
-        $db->query('replace into system_file_data (filename, data) values ({filename}, {data})', [
+        $db->direct('replace into system_file_data (filename, data) values ({filename}, {data})', [
             'filename' => $filename,
             'data' => base64_encode($fileContent)
         ]);
