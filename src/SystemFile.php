@@ -4,6 +4,7 @@ namespace Tualo\Office\SystemFiles;
 
 use Tualo\Office\Basic\TualoApplication as App;
 use Tualo\Office\Basic\Route as BasicRoute;
+use Garden\Cli\Args;
 use Tualo\Office\Basic\Path;
 use MatthiasMullie\Minify\CSS;
 
@@ -66,6 +67,31 @@ class SystemFile
         return true;
     }
 
+
+    public static function executeCallbackDeliver(callable $fileCallback): bool
+    {
+        $callbackResult = $fileCallback();
+        if (!$callbackResult->success) {
+            return false;
+        }
+        $fileContent = $callbackResult->getContent();
+        $db = App::get('session')->getDB();
+        $etag = md5($fileContent);
+        $mimetype = $callbackResult->getMimetype();
+        $last_modified_time = time();
+        header("Last-Modified: " . gmdate("D, d M Y H:i:s", $last_modified_time) . " GMT");
+        header("Etag: $etag");
+        header('Cache-Control: public');
+        App::contenttype($mimetype);
+        App::body($fileContent);
+        BasicRoute::$finished = true;
+        http_response_code(200);
+        return true;
+    }
+
+
+
+
     /**
      * function for sending a file from database if the db file is newer
      * otherwise send not modified.
@@ -76,44 +102,54 @@ class SystemFile
      */
     public static function deliverFile(string $filename, callable $fileCallback)
     {
-        $db = App::get('session')->getDB();
-        $fileinfo = $db->singleRow('select * from system_file where filename={filename}', ['filename' => $filename]);
-        if (!$fileinfo) {
-            if (!self::executeCallbackAndStore($filename, $fileCallback)) {
-                http_response_code(404);
-                exit;
+        try {
+
+            $db = App::get('session')->getDB();
+            if (is_null($db)) {
+                return self::executeCallbackDeliver($fileCallback);
             }
+
             $fileinfo = $db->singleRow('select * from system_file where filename={filename}', ['filename' => $filename]);
             if (!$fileinfo) {
+                if (!self::executeCallbackAndStore($filename, $fileCallback)) {
+                    http_response_code(404);
+                    exit;
+                }
+                $fileinfo = $db->singleRow('select * from system_file where filename={filename}', ['filename' => $filename]);
+                if (!$fileinfo) {
+                    http_response_code(404);
+                    exit;
+                }
+            }
+            $etag = $fileinfo['etag'];
+            $last_modified_time = strtotime($fileinfo['updated_at']);
+
+            if (
+                (isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) && (strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) == $last_modified_time))
+                ||
+                (isset($_SERVER['HTTP_IF_NONE_MATCH']) && (trim($_SERVER['HTTP_IF_NONE_MATCH']) == $etag))
+            ) {
+                header("HTTP/1.1 304 Not Modified");
+                exit;
+            }
+
+            $filedata = $db->singleValue('select data from system_file_data where filename={filename}', ['filename' => $filename], 'data');
+
+            if (!$filedata) {
                 http_response_code(404);
                 exit;
             }
+
+            header("Last-Modified: " . gmdate("D, d M Y H:i:s", $last_modified_time) . " GMT");
+            header("Etag: $etag");
+            header('Cache-Control: public');
+            App::contenttype($fileinfo['mimetype']);
+            App::body(base64_decode($filedata));
+            BasicRoute::$finished = true;
+            http_response_code(200);
+        } catch (\Exception $e) {
+            App::logger('SystemFile')->error('Error delivering file: ' . $e->getMessage());
+            return self::executeCallbackDeliver($fileCallback);
         }
-        $etag = $fileinfo['etag'];
-        $last_modified_time = strtotime($fileinfo['updated_at']);
-
-        if (
-            (isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) && (strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) == $last_modified_time))
-            ||
-            (isset($_SERVER['HTTP_IF_NONE_MATCH']) && (trim($_SERVER['HTTP_IF_NONE_MATCH']) == $etag))
-        ) {
-            header("HTTP/1.1 304 Not Modified");
-            exit;
-        }
-
-        $filedata = $db->singleValue('select data from system_file_data where filename={filename}', ['filename' => $filename], 'data');
-
-        if (!$filedata) {
-            http_response_code(404);
-            exit;
-        }
-
-        header("Last-Modified: " . gmdate("D, d M Y H:i:s", $last_modified_time) . " GMT");
-        header("Etag: $etag");
-        header('Cache-Control: public');
-        App::contenttype($fileinfo['mimetype']);
-        App::body(base64_decode($filedata));
-        BasicRoute::$finished = true;
-        http_response_code(200);
     }
 }
