@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS `system_file` (
   PRIMARY KEY (`filename`)
 ) ;
 
+
 CREATE TABLE IF NOT EXISTS `system_file_data` (
   `filename` varchar(255) NOT NULL,
   `data` longtext, -- stores the file content in base64 format
