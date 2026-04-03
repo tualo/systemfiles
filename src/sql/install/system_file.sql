@@ -8,6 +8,8 @@ CREATE TABLE IF NOT EXISTS `system_file` (
   PRIMARY KEY (`filename`)
 ) ;
 
+alter table `system_file` add column if not exists `package` varchar(255) not null default '' after `etag`;
+
 
 CREATE TABLE IF NOT EXISTS `system_file_data` (
   `filename` varchar(255) NOT NULL,

@@ -45,7 +45,7 @@ class SystemFileCallbackResult
 class SystemFile
 {
 
-    public static function executeCallbackAndStore(string $filename, callable $fileCallback): bool
+    public static function executeCallbackAndStore(string $filename, callable $fileCallback, $package = ''): bool
     {
         $callbackResult = $fileCallback();
         if (!$callbackResult->success) {
@@ -55,10 +55,16 @@ class SystemFile
         $db = App::get('session')->getDB();
         $etag = md5($fileContent);
         $mimetype = $callbackResult->getMimetype();
-        $db->direct('insert into system_file (filename, mimetype, etag) values ({filename}, {mimetype}, {etag}) on duplicate key update updated_at=CURRENT_TIMESTAMP, mimetype={mimetype}, etag={etag}', [
+
+        // only until summer 2026
+        $db->direct('alter table `system_file` add column if not exists `package` varchar(255) not null default \'\' after `etag`');
+
+
+        $db->direct('insert into system_file (filename, mimetype, etag, package) values ({filename}, {mimetype}, {etag}, {package}) on duplicate key update updated_at=CURRENT_TIMESTAMP, mimetype={mimetype}, etag={etag}, package={package}', [
             'filename' => $filename,
             'mimetype' => $mimetype,
-            'etag' => $etag
+            'etag' => $etag,
+            'package' => $package
         ]);
         $db->direct('replace into system_file_data (filename, data) values ({filename}, {data})', [
             'filename' => $filename,
@@ -90,6 +96,33 @@ class SystemFile
     }
 
 
+    public static function removeSystemFile(string $filename)
+    {
+        try {
+            $db = App::get('session')->getDB();
+            if (is_null($db)) {
+                return;
+            }
+            $db->direct('delete from system_file where filename={filename}', ['filename' => $filename]);
+            $db->direct('delete from system_file_data where filename={filename}', ['filename' => $filename]);
+        } catch (\Exception $e) {
+            App::logger('SystemFile')->error('Error removing file: ' . $e->getMessage());
+        }
+    }
+
+    public static function removeSystemFileByPackage(string $package)
+    {
+        try {
+            $db = App::get('session')->getDB();
+            if (is_null($db)) {
+                return;
+            }
+            $db->direct('delete from system_file_data where filename in (select filename from system_file where package={package})', ['package' => $package]);
+            $db->direct('delete from system_file where package={package}', ['package' => $package]);
+        } catch (\Exception $e) {
+            App::logger('SystemFile')->error('Error removing file: ' . $e->getMessage());
+        }
+    }
 
 
     /**
@@ -100,7 +133,7 @@ class SystemFile
      * callback function,
      * if the file is not found in database and callback function returns false send 404
      */
-    public static function deliverFile(string $filename, callable $fileCallback)
+    public static function deliverFile(string $filename, callable $fileCallback, $package = '')
     {
         try {
 
@@ -111,7 +144,7 @@ class SystemFile
 
             $fileinfo = $db->singleRow('select * from system_file where filename={filename}', ['filename' => $filename]);
             if (!$fileinfo) {
-                if (!self::executeCallbackAndStore($filename, $fileCallback)) {
+                if (!self::executeCallbackAndStore($filename, $fileCallback, $package)) {
                     http_response_code(404);
                     exit;
                 }
