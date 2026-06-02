@@ -145,13 +145,14 @@ class SystemFile
             $fileinfo = $db->singleRow('select * from system_file where filename={filename}', ['filename' => $filename]);
             if (!$fileinfo) {
                 if (!self::executeCallbackAndStore($filename, $fileCallback, $package)) {
+                    App::logger('SystemFile')->error('executeCallbackAndStore failed: ' . $filename);
                     http_response_code(404);
                     exit;
                 }
                 $fileinfo = $db->singleRow('select * from system_file where filename={filename}', ['filename' => $filename]);
                 if (!$fileinfo) {
-                    http_response_code(404);
-                    exit;
+                    App::logger('SystemFile')->error('NO FILE INFO: ' . $filename);
+                    return self::executeCallbackDeliver($fileCallback);
                 }
             }
             $etag = $fileinfo['etag'];
@@ -169,8 +170,8 @@ class SystemFile
             $filedata = $db->singleValue('select data from system_file_data where filename={filename}', ['filename' => $filename], 'data');
 
             if (!$filedata) {
-                http_response_code(404);
-                exit;
+                App::logger('SystemFile')->error('NO FILE DATA (BUT INFORMATION EXISTS): ' . $filename);
+                return self::executeCallbackDeliver($fileCallback);
             }
 
             header("Last-Modified: " . gmdate("D, d M Y H:i:s", $last_modified_time) . " GMT");
