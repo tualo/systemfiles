@@ -5,10 +5,11 @@ CREATE TABLE IF NOT EXISTS `system_file` (
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `mimetype` varchar(255) NOT NULL,
   `etag` varchar(255) NOT NULL,
+  `package` varchar(255) not null default '',
   PRIMARY KEY (`filename`)
 ) ;
 
-alter table `system_file` add column if not exists `package` varchar(255) not null default '' after `etag`;
+-- alter table `system_file` add column if not exists `package` varchar(255) not null default '' after `etag`;
 
 
 CREATE TABLE IF NOT EXISTS `system_file_data` (
