@@ -167,6 +167,20 @@ class SystemFile
                 exit;
             }
 
+            if (!isset($_SERVER['HTTP_IF_NONE_MATCH'])) {
+                if (!self::executeCallbackAndStore($filename, $fileCallback, $package)) {
+                    App::logger('SystemFile')->error('executeCallbackAndStore failed: ' . $filename);
+                    http_response_code(404);
+                    exit;
+                }
+                $fileinfo = $db->singleRow('select * from system_file where filename={filename}', ['filename' => $filename]);
+                if (!$fileinfo) {
+                    App::logger('SystemFile')->error('NO FILE INFO: ' . $filename);
+                    return self::executeCallbackDeliver($fileCallback);
+                }
+            }
+
+
             $filedata = $db->singleValue('select data from system_file_data where filename={filename}', ['filename' => $filename], 'data');
 
             if (!$filedata) {
