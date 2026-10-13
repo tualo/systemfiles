@@ -57,7 +57,7 @@ class SystemFile
         $mimetype = $callbackResult->getMimetype();
 
         // only until summer 2026
-        $db->direct('alter table `system_file` add column if not exists `package` varchar(255) not null default \'\' after `etag`');
+        // $db->direct('alter table `system_file` add column if not exists `package` varchar(255) not null default \'\' after `etag`');
 
 
         $db->direct('insert into system_file (filename, mimetype, etag, package) values ({filename}, {mimetype}, {etag}, {package}) on duplicate key update updated_at=CURRENT_TIMESTAMP, mimetype={mimetype}, etag={etag}, package={package}', [
@@ -67,7 +67,7 @@ class SystemFile
             'package' => $package
         ]);
 
-        $db->direct('SET SESSION max_allowed_packet = 67108864;');
+        // $db->direct('SET SESSION max_allowed_packet = 67108864;');
 
         // check if max_allowed_packet is sufficient for the file size
         $maxAllowedPacket = $db->singleValue('SELECT @@SESSION.max_allowed_packet x', [], 'x');
