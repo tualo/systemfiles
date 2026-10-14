@@ -73,7 +73,8 @@ class SystemFile
         $maxAllowedPacket = $db->singleValue('SELECT @@SESSION.max_allowed_packet x', [], 'x');
         if (strlen(base64_encode($fileContent)) > $maxAllowedPacket) {
             App::logger('SystemFile')->error("File size: " . strlen(base64_encode($fileContent)) . " Max allowed packet: " . $maxAllowedPacket);
-            throw new \Exception('File size exceeds max_allowed_packet');
+            // throw new \Exception('File size exceeds max_allowed_packet');
+            return true;
         }
 
         $db->direct('replace into system_file_data (filename, data) values ({filename}, {data})', [
