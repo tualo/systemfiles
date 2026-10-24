@@ -21,6 +21,7 @@ class SystemFileCallbackResult
         $this->mimetype = $mimetype;
     }
 
+
     public static function success(string $content, string $mimetype = 'application/octet-stream'): self
     {
         return new self(true, $content, $mimetype);
@@ -45,8 +46,17 @@ class SystemFileCallbackResult
 class SystemFile
 {
 
+    public static function useDatabase(): bool
+    {
+        return App::configuration('systemfiles', 'useDatabase', '1') == '1';
+    }
+
     public static function executeCallbackAndStore(string $filename, callable $fileCallback, $package = ''): bool
     {
+        if (!self::useDatabase()) {
+            return false;
+        }
+
         $callbackResult = $fileCallback();
         if (!$callbackResult->success) {
             return false;
@@ -92,7 +102,6 @@ class SystemFile
             return false;
         }
         $fileContent = $callbackResult->getContent();
-        $db = App::get('session')->getDB();
         $etag = md5($fileContent);
         $mimetype = $callbackResult->getMimetype();
         $last_modified_time = time();
@@ -109,6 +118,10 @@ class SystemFile
 
     public static function removeSystemFile(string $filename)
     {
+        if (!self::useDatabase()) {
+            return;
+        }
+
         try {
             $db = App::get('session')->getDB();
             if (is_null($db)) {
@@ -123,6 +136,10 @@ class SystemFile
 
     public static function removeSystemFileByPackage(string $package)
     {
+        if (!self::useDatabase()) {
+            return;
+        }
+
         try {
             $db = App::get('session')->getDB();
             if (is_null($db)) {
@@ -148,6 +165,10 @@ class SystemFile
     {
         try {
 
+            if (!self::useDatabase()) {
+                return self::executeCallbackDeliver($fileCallback);
+            }
+
             $db = App::get('session')->getDB();
             if (is_null($db)) {
                 return self::executeCallbackDeliver($fileCallback);
@@ -155,6 +176,7 @@ class SystemFile
 
             $fileinfo = $db->singleRow('select * from system_file where filename={filename}', ['filename' => $filename]);
             if (!$fileinfo) {
+                App::logger('SystemFile')->warning('file not in database: ' . $filename);
                 if (!self::executeCallbackAndStore($filename, $fileCallback, $package)) {
                     App::logger('SystemFile')->error('executeCallbackAndStore failed: ' . $filename);
                     http_response_code(404);
@@ -179,6 +201,7 @@ class SystemFile
             }
 
             if (!isset($_SERVER['HTTP_IF_NONE_MATCH'])) {
+                App::logger('SystemFile')->debug('HTTP_IF_NONE_MATCH not set for file: ' . $filename);
                 if (!self::executeCallbackAndStore($filename, $fileCallback, $package)) {
                     App::logger('SystemFile')->error('executeCallbackAndStore failed: ' . $filename);
                     http_response_code(404);
