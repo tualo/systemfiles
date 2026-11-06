@@ -176,7 +176,7 @@ class SystemFile
 
             $fileinfo = $db->singleRow('select * from system_file where filename={filename}', ['filename' => $filename]);
             if (!$fileinfo) {
-                App::logger('SystemFile')->warning('file not in database: ' . $filename);
+                // App::logger('SystemFile')->warning('file not in database: ' . $filename);
                 if (!self::executeCallbackAndStore($filename, $fileCallback, $package)) {
                     App::logger('SystemFile')->error('executeCallbackAndStore failed: ' . $filename, []);
                     http_response_code(404);
