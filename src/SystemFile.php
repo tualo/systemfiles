@@ -82,7 +82,7 @@ class SystemFile
         // check if max_allowed_packet is sufficient for the file size
         $maxAllowedPacket = $db->singleValue('SELECT @@SESSION.max_allowed_packet x', [], 'x');
         if (strlen(base64_encode($fileContent)) > $maxAllowedPacket) {
-            App::logger('SystemFile')->error("File size: " . strlen(base64_encode($fileContent)) . " Max allowed packet: " . $maxAllowedPacket);
+            App::logger('SystemFile')->error("File size: " . strlen(base64_encode($fileContent)) . " Max allowed packet: " . $maxAllowedPacket, []);
             // throw new \Exception('File size exceeds max_allowed_packet');
             return true;
         }
@@ -130,7 +130,7 @@ class SystemFile
             $db->direct('delete from system_file where filename={filename}', ['filename' => $filename]);
             $db->direct('delete from system_file_data where filename={filename}', ['filename' => $filename]);
         } catch (\Exception $e) {
-            App::logger('SystemFile')->error('Error removing file: ' . $e->getMessage());
+            App::logger('SystemFile')->error('Error removing file: ' . $e->getMessage(), []);
         }
     }
 
@@ -148,7 +148,7 @@ class SystemFile
             $db->direct('delete from system_file_data where filename in (select filename from system_file where package={package})', ['package' => $package]);
             $db->direct('delete from system_file where package={package}', ['package' => $package]);
         } catch (\Exception $e) {
-            App::logger('SystemFile')->error('Error removing file: ' . $e->getMessage());
+            App::logger('SystemFile')->error('Error removing file: ' . $e->getMessage(), []);
         }
     }
 
@@ -178,13 +178,13 @@ class SystemFile
             if (!$fileinfo) {
                 App::logger('SystemFile')->warning('file not in database: ' . $filename);
                 if (!self::executeCallbackAndStore($filename, $fileCallback, $package)) {
-                    App::logger('SystemFile')->error('executeCallbackAndStore failed: ' . $filename);
+                    App::logger('SystemFile')->error('executeCallbackAndStore failed: ' . $filename, []);
                     http_response_code(404);
                     exit;
                 }
                 $fileinfo = $db->singleRow('select * from system_file where filename={filename}', ['filename' => $filename]);
                 if (!$fileinfo) {
-                    App::logger('SystemFile')->error('NO FILE INFO: ' . $filename);
+                    App::logger('SystemFile')->error('NO FILE INFO: ' . $filename, []);
                     return self::executeCallbackDeliver($fileCallback);
                 }
             }
@@ -203,13 +203,13 @@ class SystemFile
             if (!isset($_SERVER['HTTP_IF_NONE_MATCH'])) {
                 App::logger('SystemFile')->debug('HTTP_IF_NONE_MATCH not set for file: ' . $filename);
                 if (!self::executeCallbackAndStore($filename, $fileCallback, $package)) {
-                    App::logger('SystemFile')->error('executeCallbackAndStore failed: ' . $filename);
+                    App::logger('SystemFile')->error('executeCallbackAndStore failed: ' . $filename, []);
                     http_response_code(404);
                     exit;
                 }
                 $fileinfo = $db->singleRow('select * from system_file where filename={filename}', ['filename' => $filename]);
                 if (!$fileinfo) {
-                    App::logger('SystemFile')->error('NO FILE INFO: ' . $filename);
+                    App::logger('SystemFile')->error('NO FILE INFO: ' . $filename, []);
                     return self::executeCallbackDeliver($fileCallback);
                 }
             }
@@ -218,7 +218,7 @@ class SystemFile
             $filedata = $db->singleValue('select data from system_file_data where filename={filename}', ['filename' => $filename], 'data');
 
             if (!$filedata) {
-                App::logger('SystemFile')->error('NO FILE DATA (BUT INFORMATION EXISTS): ' . $filename);
+                App::logger('SystemFile')->error('NO FILE DATA (BUT INFORMATION EXISTS): ' . $filename, []);
                 return self::executeCallbackDeliver($fileCallback);
             }
 
@@ -230,7 +230,7 @@ class SystemFile
             BasicRoute::$finished = true;
             http_response_code(200);
         } catch (\Exception $e) {
-            App::logger('SystemFile')->error('Error delivering file: ' . $e->getMessage());
+            App::logger('SystemFile')->error('Error delivering file: ' . $e->getMessage(), []);
             return self::executeCallbackDeliver($fileCallback);
         }
     }
